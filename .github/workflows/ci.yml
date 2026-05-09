@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+env:
+  NODE_VERSION: 22
+  DATABASE_URL: postgresql://mediguard:mediguard_dev_password@localhost:5432/mediguard?schema=public
+  JWT_ACCESS_SECRET: replace-with-a-long-random-development-secret
+  JWT_REFRESH_SECRET: replace-with-a-different-long-random-development-secret
+  CORS_ORIGIN: http://localhost:3000
+  SWAGGER_ENABLED: true
+  FILE_STORAGE_DIR: storage/uploads
+
+jobs:
+  backend:
+    name: Backend lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mediguard
+          POSTGRES_PASSWORD: mediguard_dev_password
+          POSTGRES_DB: mediguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mediguard -d mediguard"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      API_PORT: 4000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma validate
+        run: pnpm --filter @mediguard/api prisma validate
+
+      - name: Prisma generate
+        run: pnpm --filter @mediguard/api prisma generate
+
+      - name: Prepare database
+        run: |
+          pnpm --filter @mediguard/api prisma migrate deploy
+          pnpm --filter @mediguard/api prisma db seed
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Backend lint
+        run: pnpm --filter @mediguard/api lint
+
+      - name: Backend typecheck
+        run: pnpm --filter @mediguard/api typecheck
+
+      - name: Backend unit tests
+        run: pnpm --filter @mediguard/api test
+
+      - name: Backend integration tests
+        run: pnpm --filter @mediguard/api test:integration
+
+      - name: Backend build
+        run: pnpm --filter @mediguard/api build
+
+  frontend:
+    name: Frontend lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend lint
+        run: pnpm --filter @mediguard/web lint
+
+      - name: Frontend typecheck
+        run: pnpm --filter @mediguard/web typecheck
+
+      - name: Frontend unit tests
+        run: pnpm --filter @mediguard/web test
+
+      - name: Frontend build
+        run: pnpm --filter @mediguard/web build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @mediguard/web exec playwright install --with-deps chromium
+
+      - name: Playwright smoke tests
+        run: pnpm --filter @mediguard/web test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

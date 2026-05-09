@@ -1,0 +1,921 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  ARRIVED
+  IN_QUEUE
+  IN_CONSULTATION
+  LAB_REQUIRED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum QueueEntryStatus {
+  WAITING
+  IN_CONSULTATION
+  LAB_REQUIRED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  APPOINTMENT_BOOKED
+  APPOINTMENT_STATUS_CHANGED
+  APPOINTMENT_CANCELLED
+  QUEUE_UPDATED
+  LAB_RESULT_READY
+}
+
+enum VisitStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum VisitNoteType {
+  DIAGNOSIS
+  RECOMMENDATION
+  GENERAL
+}
+
+enum LabOrderStatus {
+  ORDERED
+  RESULT_UPLOADED
+  READY
+  CANCELLED
+}
+
+enum LabResultStatus {
+  UPLOADED
+  READY
+}
+
+enum TestCasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TestRunStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TestResultStatus {
+  PENDING
+  PASSED
+  FAILED
+  BLOCKED
+  SKIPPED
+}
+
+enum BugSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BugStatus {
+  OPEN
+  TRIAGED
+  IN_PROGRESS
+  READY_FOR_QA
+  RETEST
+  CLOSED
+  REOPENED
+}
+
+enum ReleaseGateStatus {
+  PASSED
+  BLOCKED
+}
+
+enum ReleaseGateCheckType {
+  CRITICAL_BUGS_OPEN
+  REQUIRED_TESTS_FAILED
+  MIN_PASS_RATE
+}
+
+enum ReleaseGateCheckStatus {
+  PASSED
+  FAILED
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SecurityIncidentStatus {
+  DETECTED
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+  FALSE_POSITIVE
+}
+
+enum SecurityFindingStatus {
+  OPEN
+  ACCEPTED_RISK
+  REMEDIATED
+  FALSE_POSITIVE
+}
+
+enum SuspiciousActivityRuleType {
+  TOO_MANY_FAILED_LOGINS
+  EXCESSIVE_PATIENT_PROFILE_VIEWS
+  DISABLED_USER_LOGIN
+  ROLE_PERMISSION_CHANGED
+  REPEATED_LAB_RESULT_DOWNLOAD
+  PATIENT_RECORD_OUTSIDE_APPOINTMENT
+}
+
+enum SuspiciousActivityEventStatus {
+  OPEN
+  ACKNOWLEDGED
+  DISMISSED
+  LINKED_TO_INCIDENT
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model Clinic {
+  id              String           @id @default(uuid())
+  name            String
+  slug            String           @unique
+  phone           String?
+  email           String?
+  address         String?
+  timezone        String           @default("UTC")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  branches        Branch[]
+  services        ClinicService[]
+  staff           StaffProfile[]
+  patients        PatientProfile[]
+  appointments    Appointment[]
+  doctorSchedules DoctorSchedule[]
+  queueEntries    QueueEntry[]
+  visits          Visit[]
+  labOrders       LabOrder[]
+  labResults      LabResult[]
+  fileAttachments FileAttachment[]
+}
+
+model User {
+  id                        String                    @id @default(uuid())
+  email                     String                    @unique
+  passwordHash              String
+  firstName                 String
+  lastName                  String
+  status                    UserStatus                @default(ACTIVE)
+  failedLoginCount          Int                       @default(0)
+  lockedUntil               DateTime?
+  lastLoginAt               DateTime?
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  roles                     UserRole[]
+  refreshTokens             RefreshToken[]
+  loginAttempts             LoginAttempt[]
+  auditLogs                 AuditLog[]                @relation("ActorAuditLogs")
+  staffProfile              StaffProfile?
+  patientProfile            PatientProfile?
+  notifications             Notification[]
+  uploadedFiles             FileAttachment[]          @relation("UploadedFiles")
+  reportedBugs              BugReport[]               @relation("ReportedBugs")
+  assignedBugs              BugReport[]               @relation("AssignedBugs")
+  sessions                  Session[]
+  createdSecurityIncidents  SecurityIncident[]        @relation("CreatedSecurityIncidents")
+  assignedSecurityIncidents SecurityIncident[]        @relation("AssignedSecurityIncidents")
+  createdSecurityFindings   SecurityFinding[]         @relation("CreatedSecurityFindings")
+  suspiciousActivityEvents  SuspiciousActivityEvent[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model Branch {
+  id              String           @id @default(uuid())
+  clinicId        String
+  name            String
+  code            String
+  address         String
+  phone           String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  rooms           Room[]
+  staff           StaffProfile[]
+  appointments    Appointment[]
+  doctorSchedules DoctorSchedule[]
+  queueEntries    QueueEntry[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId])
+}
+
+model Room {
+  id        String          @id @default(uuid())
+  branchId  String
+  name      String
+  code      String
+  type      String
+  capacity  Int             @default(1)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctors   DoctorProfile[]
+
+  @@unique([branchId, code])
+  @@index([branchId])
+}
+
+model ClinicService {
+  id              String        @id @default(uuid())
+  clinicId        String
+  name            String
+  code            String
+  description     String?
+  durationMinutes Int
+  priceCents      Int
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments    Appointment[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId])
+}
+
+model StaffProfile {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  clinicId      String
+  branchId      String?
+  employeeCode  String         @unique
+  jobTitle      String
+  department    String
+  phone         String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  doctorProfile DoctorProfile?
+
+  @@index([clinicId])
+  @@index([branchId])
+}
+
+model DoctorProfile {
+  id                 String           @id @default(uuid())
+  staffProfileId     String           @unique
+  specialty          String
+  licenseNumber      String
+  schedule           Json?
+  consultationRoomId String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  staffProfile       StaffProfile     @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  consultationRoom   Room?            @relation(fields: [consultationRoomId], references: [id], onDelete: SetNull)
+  patients           PatientProfile[]
+  appointments       Appointment[]
+  schedules          DoctorSchedule[]
+  queueEntries       QueueEntry[]
+  visits             Visit[]
+  labOrders          LabOrder[]
+
+  @@index([consultationRoomId])
+}
+
+model PatientProfile {
+  id                  String                    @id @default(uuid())
+  userId              String?                   @unique
+  clinicId            String
+  medicalRecordNumber String
+  firstName           String
+  lastName            String
+  dateOfBirth         DateTime
+  gender              String
+  primaryDoctorId     String?
+  medicalNotes        String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  user                User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  clinic              Clinic                    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  primaryDoctor       DoctorProfile?            @relation(fields: [primaryDoctorId], references: [id], onDelete: SetNull)
+  contact             PatientContact?
+  emergencyContacts   PatientEmergencyContact[]
+  appointments        Appointment[]
+  queueEntries        QueueEntry[]
+  visits              Visit[]
+  labOrders           LabOrder[]
+  labResults          LabResult[]
+  fileAttachments     FileAttachment[]
+
+  @@unique([clinicId, medicalRecordNumber])
+  @@index([clinicId])
+  @@index([primaryDoctorId])
+}
+
+model DoctorSchedule {
+  id             String        @id @default(uuid())
+  clinicId       String
+  branchId       String
+  doctorId       String
+  dayOfWeek      Int
+  startsAt       String
+  endsAt         String
+  slotMinutes    Int           @default(30)
+  effectiveFrom  DateTime
+  effectiveUntil DateTime?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  clinic         Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctor         DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([branchId])
+  @@index([doctorId, dayOfWeek, isActive])
+}
+
+model Appointment {
+  id                 String                     @id @default(uuid())
+  clinicId           String
+  branchId           String
+  patientId          String
+  doctorId           String
+  serviceId          String?
+  startAt            DateTime
+  endAt              DateTime
+  status             AppointmentStatus          @default(BOOKED)
+  reason             String?
+  cancellationReason String?
+  createdByUserId    String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  clinic             Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  branch             Branch                     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  patient            PatientProfile             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor             DoctorProfile              @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  service            ClinicService?             @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  statusHistory      AppointmentStatusHistory[]
+  queueEntry         QueueEntry?
+  visit              Visit?
+
+  @@unique([doctorId, startAt])
+  @@index([clinicId, startAt])
+  @@index([branchId, startAt])
+  @@index([patientId, startAt])
+  @@index([doctorId, startAt])
+  @@index([status])
+}
+
+model AppointmentStatusHistory {
+  id              String             @id @default(uuid())
+  appointmentId   String
+  fromStatus      AppointmentStatus?
+  toStatus        AppointmentStatus
+  changedByUserId String?
+  reason          String?
+  createdAt       DateTime           @default(now())
+  appointment     Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, createdAt])
+  @@index([toStatus])
+}
+
+model QueueEntry {
+  id            String           @id @default(uuid())
+  clinicId      String
+  branchId      String
+  appointmentId String           @unique
+  patientId     String
+  doctorId      String
+  status        QueueEntryStatus @default(WAITING)
+  position      Int
+  arrivedAt     DateTime         @default(now())
+  calledAt      DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  branch        Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  appointment   Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient       PatientProfile   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        DoctorProfile    @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, createdAt])
+  @@index([branchId, createdAt])
+  @@index([doctorId, status, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String?
+  type      NotificationType
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model Visit {
+  id             String         @id @default(uuid())
+  clinicId       String
+  appointmentId  String         @unique
+  patientId      String
+  doctorId       String
+  status         VisitStatus    @default(IN_PROGRESS)
+  diagnosis      String?
+  recommendation String?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  clinic         Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointment    Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient        PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor         DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  notes          VisitNote[]
+  prescriptions  Prescription[]
+  labOrders      LabOrder[]
+
+  @@index([clinicId, createdAt])
+  @@index([patientId, createdAt])
+  @@index([doctorId, createdAt])
+  @@index([status])
+}
+
+model VisitNote {
+  id              String        @id @default(uuid())
+  visitId         String
+  type            VisitNoteType
+  content         String
+  createdByUserId String?
+  createdAt       DateTime      @default(now())
+  visit           Visit         @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId, createdAt])
+  @@index([type])
+}
+
+model Prescription {
+  id              String   @id @default(uuid())
+  visitId         String
+  note            String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  visit           Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId, createdAt])
+}
+
+model LabOrder {
+  id              String         @id @default(uuid())
+  clinicId        String
+  visitId         String
+  patientId       String
+  doctorId        String
+  testName        String
+  instructions    String?
+  status          LabOrderStatus @default(ORDERED)
+  orderedByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  clinic          Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  visit           Visit          @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  patient         PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  result          LabResult?
+
+  @@index([clinicId, status, createdAt])
+  @@index([patientId, createdAt])
+  @@index([doctorId, createdAt])
+}
+
+model LabResult {
+  id               String          @id @default(uuid())
+  clinicId         String
+  labOrderId       String          @unique
+  patientId        String
+  uploadedByUserId String?
+  status           LabResultStatus @default(UPLOADED)
+  resultSummary    String?
+  readyAt          DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  clinic           Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  labOrder         LabOrder        @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  patient          PatientProfile  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  attachment       FileAttachment?
+
+  @@index([clinicId, status, createdAt])
+  @@index([patientId, status, createdAt])
+}
+
+model FileAttachment {
+  id               String         @id @default(uuid())
+  clinicId         String
+  patientId        String
+  labResultId      String?        @unique
+  uploadedByUserId String?
+  originalName     String
+  storageName      String         @unique
+  mimeType         String
+  sizeBytes        Int
+  storagePath      String
+  createdAt        DateTime       @default(now())
+  clinic           Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient          PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  labResult        LabResult?     @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+  uploadedBy       User?          @relation("UploadedFiles", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, createdAt])
+  @@index([patientId, createdAt])
+  @@index([mimeType])
+}
+
+model TestSuite {
+  id              String     @id @default(uuid())
+  name            String
+  description     String?
+  featureArea     String
+  createdByUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  testCases       TestCase[]
+  testRuns        TestRun[]
+
+  @@index([featureArea])
+  @@index([createdAt])
+}
+
+model TestCase {
+  id              String           @id @default(uuid())
+  suiteId         String
+  title           String
+  description     String?
+  featureArea     String
+  preconditions   String?
+  steps           String
+  expectedResult  String
+  priority        TestCasePriority @default(MEDIUM)
+  isRequired      Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  suite           TestSuite        @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  results         TestRunResult[]
+
+  @@index([suiteId])
+  @@index([featureArea])
+  @@index([priority])
+  @@index([isRequired])
+}
+
+model TestRun {
+  id              String          @id @default(uuid())
+  suiteId         String
+  name            String
+  status          TestRunStatus   @default(IN_PROGRESS)
+  createdByUserId String?
+  startedAt       DateTime        @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  suite           TestSuite       @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  results         TestRunResult[]
+  releaseGates    ReleaseGate[]
+
+  @@index([suiteId, createdAt])
+  @@index([status])
+}
+
+model TestRunResult {
+  id               String           @id @default(uuid())
+  testRunId        String
+  testCaseId       String
+  status           TestResultStatus @default(PENDING)
+  actualResult     String?
+  notes            String?
+  executedByUserId String?
+  executedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  testRun          TestRun          @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testCase         TestCase         @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  bugReports       BugReport[]
+
+  @@unique([testRunId, testCaseId])
+  @@index([testRunId, status])
+  @@index([testCaseId])
+}
+
+model BugReport {
+  id               String         @id @default(uuid())
+  testRunResultId  String?
+  title            String
+  description      String
+  severity         BugSeverity
+  status           BugStatus      @default(OPEN)
+  featureArea      String
+  reporterUserId   String?
+  assignedToUserId String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  closedAt         DateTime?
+  testRunResult    TestRunResult? @relation(fields: [testRunResultId], references: [id], onDelete: SetNull)
+  reporter         User?          @relation("ReportedBugs", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?          @relation("AssignedBugs", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([severity])
+  @@index([featureArea])
+  @@index([assignedToUserId])
+}
+
+model ReleaseGate {
+  id              String             @id @default(uuid())
+  testRunId       String
+  name            String
+  version         String
+  status          ReleaseGateStatus  @default(BLOCKED)
+  minPassRate     Int                @default(90)
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  testRun         TestRun            @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  checks          ReleaseGateCheck[]
+
+  @@index([testRunId])
+  @@index([status])
+  @@index([version])
+}
+
+model ReleaseGateCheck {
+  id            String                 @id @default(uuid())
+  releaseGateId String
+  type          ReleaseGateCheckType
+  status        ReleaseGateCheckStatus
+  message       String
+  details       Json?
+  createdAt     DateTime               @default(now())
+  releaseGate   ReleaseGate            @relation(fields: [releaseGateId], references: [id], onDelete: Cascade)
+
+  @@index([releaseGateId])
+  @@index([type, status])
+}
+
+model Session {
+  id         String        @id @default(uuid())
+  userId     String
+  familyId   String        @unique
+  status     SessionStatus @default(ACTIVE)
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime      @default(now())
+  lastSeenAt DateTime      @default(now())
+  revokedAt  DateTime?
+  expiresAt  DateTime
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, lastSeenAt])
+  @@index([expiresAt])
+}
+
+model SuspiciousActivityRule {
+  id            String                     @id @default(uuid())
+  type          SuspiciousActivityRuleType @unique
+  name          String
+  description   String
+  severity      SecuritySeverity
+  threshold     Int
+  windowMinutes Int
+  isEnabled     Boolean                    @default(true)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  events        SuspiciousActivityEvent[]
+
+  @@index([isEnabled])
+  @@index([severity])
+}
+
+model SuspiciousActivityEvent {
+  id           String                        @id @default(uuid())
+  ruleId       String
+  type         SuspiciousActivityRuleType
+  severity     SecuritySeverity
+  status       SuspiciousActivityEventStatus @default(OPEN)
+  title        String
+  description  String
+  evidence     Json
+  actorUserId  String?
+  ipAddress    String?
+  resourceType String?
+  resourceId   String?
+  occurredAt   DateTime
+  createdAt    DateTime                      @default(now())
+  rule         SuspiciousActivityRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  actor        User?                         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  incident     SecurityIncident?
+
+  @@index([type, occurredAt])
+  @@index([severity, status])
+  @@index([actorUserId])
+  @@index([ipAddress])
+  @@index([resourceType, resourceId])
+}
+
+model SecurityIncident {
+  id               String                   @id @default(uuid())
+  sourceEventId    String?                  @unique
+  title            String
+  description      String
+  severity         SecuritySeverity
+  status           SecurityIncidentStatus   @default(DETECTED)
+  remediationNotes String?
+  createdByUserId  String?
+  assignedToUserId String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  resolvedAt       DateTime?
+  sourceEvent      SuspiciousActivityEvent? @relation(fields: [sourceEventId], references: [id], onDelete: SetNull)
+  createdBy        User?                    @relation("CreatedSecurityIncidents", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?                    @relation("AssignedSecurityIncidents", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  findings         SecurityFinding[]
+
+  @@index([severity, status])
+  @@index([assignedToUserId])
+  @@index([createdAt])
+}
+
+model SecurityFinding {
+  id              String                @id @default(uuid())
+  incidentId      String?
+  title           String
+  description     String
+  severity        SecuritySeverity
+  affectedModule  String
+  evidence        Json?
+  remediation     String?
+  status          SecurityFindingStatus @default(OPEN)
+  createdByUserId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  incident        SecurityIncident?     @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  createdBy       User?                 @relation("CreatedSecurityFindings", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([severity, status])
+  @@index([affectedModule])
+  @@index([incidentId])
+}
+
+model PatientContact {
+  id        String         @id @default(uuid())
+  patientId String         @unique
+  phone     String
+  email     String?
+  address   String
+  city      String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model PatientEmergencyContact {
+  id           String         @id @default(uuid())
+  patientId    String
+  fullName     String
+  relationship String
+  phone        String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  patient      PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  description String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  assignedAt   DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String    @unique
+  familyId          String
+  replacedByTokenId String?
+  revokedAt         DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  createdByIp       String?
+  userAgent         String?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model LoginAttempt {
+  id            String   @id @default(uuid())
+  email         String
+  userId        String?
+  ipAddress     String?
+  userAgent     String?
+  success       Boolean
+  failureReason String?
+  createdAt     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorUserId  String?
+  action       String
+  resourceType String
+  resourceId   String?
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  actor        User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}

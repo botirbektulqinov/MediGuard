@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mediguard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mediguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mediguard_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-mediguard}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: development
+    container_name: mediguard-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      API_PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mediguard}:${POSTGRES_PASSWORD:-mediguard_dev_password}@postgres:5432/${POSTGRES_DB:-mediguard}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-replace-with-a-long-random-development-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-replace-with-a-different-long-random-development-secret}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000,http://127.0.0.1:3000}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      FILE_STORAGE_DIR: ${FILE_STORAGE_DIR:-storage/uploads}
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "pnpm --filter @mediguard/api prisma db push;
+      pnpm --filter @mediguard/api prisma db seed;
+      pnpm --filter @mediguard/api start:dev"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: development
+    container_name: mediguard-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:

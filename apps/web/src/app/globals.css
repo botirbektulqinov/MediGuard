@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-ink: 23 32 51;
+  --color-muted: 82 99 122;
+  --color-clinical: 15 118 110;
+  --color-clinical-soft: 222 247 244;
+  --color-signal: 180 83 9;
+  --color-surface: 247 250 249;
+  --color-panel: 255 255 255;
+  --color-panel-soft: 241 246 245;
+  --color-line: 214 226 224;
+  --color-track-hex: #dbe7e5;
+  --color-clinical-hex: #0f766e;
+  --shadow-panel: 0 18px 55px rgba(23, 32, 51, 0.08);
+  --shadow-lift: 0 26px 70px rgba(15, 118, 110, 0.14);
+}
+
+.dark {
+  color-scheme: dark;
+  --color-ink: 233 239 246;
+  --color-muted: 162 176 195;
+  --color-clinical: 45 212 191;
+  --color-clinical-soft: 15 56 58;
+  --color-signal: 251 191 36;
+  --color-surface: 9 14 27;
+  --color-panel: 15 23 42;
+  --color-panel-soft: 22 33 52;
+  --color-line: 48 63 86;
+  --color-track-hex: #26364e;
+  --color-clinical-hex: #2dd4bf;
+  --shadow-panel: 0 18px 55px rgba(0, 0, 0, 0.28);
+  --shadow-lift: 0 26px 70px rgba(45, 212, 191, 0.12);
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.08), transparent 260px), rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input,
+select,
+textarea {
+  background: rgb(var(--color-panel));
+  color: rgb(var(--color-ink));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--color-muted));
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.dark .bg-white {
+  background-color: rgb(var(--color-panel));
+}
+
+.dark .bg-white\/95 {
+  background-color: rgb(var(--color-panel) / 0.95);
+}
+
+.dark .bg-slate-50 {
+  background-color: rgb(var(--color-panel-soft));
+}
+
+.dark .bg-slate-100 {
+  background-color: rgb(var(--color-line));
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: rgb(var(--color-line));
+}
+
+.dark .text-slate-500 {
+  color: rgb(var(--color-muted));
+}
+
+.dark .text-slate-600,
+.dark .text-slate-700,
+.dark .text-slate-800 {
+  color: rgb(var(--color-ink));
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgb(var(--color-panel-soft));
+}
