@@ -3,6 +3,7 @@ dist/
 build/
 .next/
 coverage/
+backups/
 playwright-report/
 test-results/
 .turbo/

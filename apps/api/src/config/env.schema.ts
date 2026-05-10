@@ -8,6 +8,8 @@ export interface Env {
   JWT_REFRESH_SECRET: string;
   CORS_ORIGIN: string;
   SWAGGER_ENABLED: boolean;
+  SWAGGER_USERNAME?: string;
+  SWAGGER_PASSWORD?: string;
   FILE_STORAGE_DIR: string;
 }
 
@@ -60,5 +62,20 @@ export const envValidationSchema = Joi.object<Env>({
       then: Joi.boolean().default(false),
       otherwise: Joi.boolean().default(true),
     }),
+  SWAGGER_USERNAME: Joi.string().min(4).optional().allow(''),
+  SWAGGER_PASSWORD: Joi.string().min(12).optional().allow(''),
   FILE_STORAGE_DIR: Joi.string().default('storage/uploads'),
+}).custom((value: Env, helpers) => {
+  if (
+    value.NODE_ENV === 'production' &&
+    value.SWAGGER_ENABLED &&
+    (!value.SWAGGER_USERNAME || !value.SWAGGER_PASSWORD)
+  ) {
+    return helpers.error('any.custom', {
+      message:
+        'SWAGGER_USERNAME and SWAGGER_PASSWORD are required when SWAGGER_ENABLED=true in production',
+    });
+  }
+
+  return value;
 });

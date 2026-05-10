@@ -41,6 +41,8 @@ Use development-only secrets locally. Never commit real secrets.
 | `JWT_REFRESH_SECRET`  | API     | Refresh-token signing secret                 |
 | `CORS_ORIGIN`         | API     | Comma-separated allowed frontend origins     |
 | `SWAGGER_ENABLED`     | API     | Enables or disables Swagger                  |
+| `SWAGGER_USERNAME`    | API     | Basic Auth username for protected Swagger    |
+| `SWAGGER_PASSWORD`    | API     | Basic Auth password for protected Swagger    |
 | `FILE_STORAGE_DIR`    | API     | Local lab-result attachment storage location |
 | `NEXT_PUBLIC_API_URL` | Web     | Browser-visible API base URL                 |
 
@@ -77,6 +79,8 @@ docker compose up --build
 
 - Web: `http://localhost:3000`
 - API health: `http://localhost:4000/api/health`
+- API liveness: `http://localhost:4000/api/health/live`
+- API readiness: `http://localhost:4000/api/health/ready`
 - Swagger: `http://localhost:4000/api/docs` when `SWAGGER_ENABLED=true`
 
 ## Verification
@@ -120,3 +124,7 @@ The production compose file:
 - Requires production secrets and deployment URLs instead of silently using development defaults.
 - Runs `prisma migrate deploy` for the API before startup.
 - Does not run the demo seed script automatically.
+- Requires `SWAGGER_USERNAME` and `SWAGGER_PASSWORD` if `SWAGGER_ENABLED=true` in production.
+
+See [production runbook](production-runbook.md) for backup, restore, TLS, monitoring, and database
+hardening expectations.

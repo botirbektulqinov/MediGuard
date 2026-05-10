@@ -1,6 +1,6 @@
 # API Overview
 
-MediGuard exposes a NestJS REST API under the `/api` prefix. Swagger/OpenAPI is available at `/api/docs` when `SWAGGER_ENABLED=true`.
+MediGuard exposes a NestJS REST API under the `/api` prefix. Swagger/OpenAPI is available at `/api/docs` when `SWAGGER_ENABLED=true`. In production, enabling Swagger also requires `SWAGGER_USERNAME` and `SWAGGER_PASSWORD`, and `/api/docs` is protected with Basic Auth.
 
 ## Authentication
 
@@ -125,3 +125,4 @@ Operational reports require `reports.read` and are clinic-scoped for non-super s
 - Business-rule failures use explicit NestJS exceptions.
 - Unauthorized and forbidden responses avoid leaking implementation details.
 - Sensitive values such as passwords, tokens, secrets, internal file paths, and raw credentials are not returned.
+- `X-Request-Id` is returned on API responses and included in request completion logs for operational tracing.

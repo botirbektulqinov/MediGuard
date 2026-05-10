@@ -170,8 +170,18 @@ Production notes:
   `NEXT_PUBLIC_API_URL` are required.
 - `NEXT_PUBLIC_API_URL` is passed at web image build time because it is used by browser code.
 - The production compose file does not run the demo seed automatically.
-- Swagger should stay disabled in production-like runs with `SWAGGER_ENABLED=false`.
+- Swagger should stay disabled in production-like runs with `SWAGGER_ENABLED=false`. If it is
+  enabled, `SWAGGER_USERNAME` and `SWAGGER_PASSWORD` are required and Basic Auth protects
+  `/api/docs`.
 - Real deployments should terminate HTTPS at a reverse proxy or platform load balancer.
+- Use [production runbook](docs/production-runbook.md) before handling real clinic data.
+
+## Deployment Guidance
+
+For a simple portfolio deployment, deploy the frontend to Vercel and run the API on a container
+platform with managed PostgreSQL. Vercel is a strong fit for `apps/web`, but the NestJS API is built
+as a long-running service with Prisma migrations, health checks, file uploads, and operational
+monitoring. See [Vercel deployment guidance](docs/deployment-vercel.md).
 
 ## Verification Commands
 
@@ -224,6 +234,8 @@ Sprint 0 establishes the project foundation:
 - Environment validation
 - Health endpoint with database connectivity check
 - Swagger setup
+- Protected Swagger access when enabled in production
+- Liveness and readiness health endpoints
 - Next.js frontend with Tailwind CSS
 - Landing page, authenticated login flow, and role-based dashboard shell
 - Prisma setup
@@ -237,6 +249,8 @@ Sprint 0 establishes the project foundation:
 - `.env` files are ignored by Git.
 - API configuration is validated at startup.
 - Swagger is controlled by `SWAGGER_ENABLED` and defaults off when `NODE_ENV=production`.
+- Production Swagger access requires `SWAGGER_USERNAME` and `SWAGGER_PASSWORD` when enabled.
+- API responses include `X-Request-Id`; request completion logs include the same ID without logging bodies, credentials, or tokens.
 - Sprint 1 implements JWT authentication, refresh token rotation, RBAC guards, failed-login tracking, account lockout, and audit logging.
 - Sprint 2 adds clinic, branch, room, service, staff, doctor, and patient profile foundations with audited patient access controls.
 - Sprint 6 adds Security Center monitoring, suspicious activity detection, incident response, findings, and session revocation.
@@ -251,6 +265,10 @@ Sprint 0 establishes the project foundation:
 - [Security checklist](docs/security-checklist.md)
 - [RBAC matrix](docs/rbac-matrix.md)
 - [Demo script](docs/demo-script.md)
+- [Production runbook](docs/production-runbook.md)
+- [Compliance readiness](docs/compliance-readiness.md)
+- [Penetration test plan](docs/pentest-plan.md)
+- [Vercel deployment guidance](docs/deployment-vercel.md)
 
 ## Screenshots
 
@@ -264,7 +282,7 @@ Screenshots should be added under `docs/screenshots/` as the UI stabilizes:
 
 ## Current Status
 
-Sprint 8 CI/CD hardening, Docker production targets, final documentation polish, API overview, and portfolio readiness updates are implemented. Advanced alert delivery, immutable audit retention, malware scanning integrations, and production cookie-based refresh-token storage remain planned hardening work.
+Sprint 8 CI/CD hardening, Docker production targets, final documentation polish, API overview, protected production Swagger controls, observability health endpoints, backup/restore runbook scripts, and portfolio readiness updates are implemented. Advanced alert delivery, immutable audit retention, malware scanning integrations, and production cookie-based refresh-token storage remain planned hardening work.
 
 ## Demo Workflow
 
